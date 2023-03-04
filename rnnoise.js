@@ -33,4 +33,39 @@ const RNNoiseModule = (function() {
     }
   }
 
-  return {
+  return {process: function(inputData) {
+    if (!rnnoiseReady) {
+      throw new Error('RNNoise is not ready yet!');
+    }
+
+    const inputPtr = Module._malloc(inputData.length * inputData.BYTES_PER_ELEMENT);
+    const outputPtr = Module._malloc(inputData.length * inputData.BYTES_PER_ELEMENT);
+
+    Module.HEAPF32.set(inputData, inputPtr / Float32Array.BYTES_PER_ELEMENT);
+
+    Module.ccall(
+      'rnnoise_process_frame',
+      'number',
+      ['number', 'number'],
+      [outputPtr, inputPtr]
+    );
+
+    const outputData = new Float32Array(inputData.length);
+    outputData.set(Module.HEAPF32.subarray(outputPtr / Float32Array.BYTES_PER_ELEMENT, (outputPtr + inputData.length * inputData.BYTES_PER_ELEMENT) / Float32Array.BYTES_PER_ELEMENT));
+
+    Module._free(inputPtr);
+    Module._free(outputPtr);
+
+    return outputData;
+  }
+};
+})();
+
+function RnNoise(sampleRate) {
+RNNoiseModule.load(function() {
+RNNoiseModule.ccall('rnnoise_init', 'number', ['number'], [sampleRate]);
+});
+
+return RNNoiseModule;
+}
+
